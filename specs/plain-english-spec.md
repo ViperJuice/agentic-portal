@@ -1021,24 +1021,125 @@ Multi-Provider Approach:
 
 ### Implementation Priorities
 
-Based on OAuth maturity and subscription integration:
+**Product Priority Order (as specified):**
 
-**Tier 1 - Implement First (Native OAuth + Subscriptions):**
-1. ✅ **GitHub Copilot** - Full OAuth, integrated billing, best UX
-2. ✅ **Sourcegraph Amp** - Full OAuth, MCP support, enterprise-ready
-3. ✅ **Gemini CLI** - Official OAuth, good documentation
+**Phase 1 - Primary Frameworks:**
+1. 🎯 **Claude Code** - Top priority
+   - Start with API key implementation (official method)
+   - Monitor for official OAuth release
+   - Consider third-party OAuth bridges with disclaimers
+   - Note: API separate from Pro/Max subscription ($20-$100/mo)
 
-**Tier 2 - Standard API Key (No OAuth Needed):**
-4. ✅ **Aider** - BYOK model, simple integration
-5. ✅ **Goose** - Free OSS, integrates other providers
-6. ✅ **Claude Code** - API key (wait for official OAuth)
+2. 🎯 **OpenAI Codex** - Second priority
+   - Start with OpenAI Platform API key
+   - ChatGPT Plus ($20/mo) separate from API billing
+   - Third-party OAuth available but unofficial
+   - Clear user communication about separate billing systems
 
-**Tier 3 - Complex/Third-Party OAuth:**
-7. ⚠️ **OpenCode** - Multiple auth methods, requires careful implementation
-8. ⚠️ **OpenAI Codex** - Third-party OAuth only, ToS concerns
+3. 🎯 **Gemini CLI** - Third priority
+   - Official OAuth support available
+   - Start with API key + free tier for MVP
+   - Implement OAuth for Gemini Advanced subscribers ($19.99/mo)
+   - Best documentation of the three
 
-**Tier 4 - Reconsider:**
-9. ❌ **Cursor** - IDE client, not suitable for API integration
+**Phase 2 - Additional Frameworks:**
+4. 🎯 **Cursor** - Fourth priority
+   - ⚠️ Technical limitation: Cursor is IDE client, not API provider
+   - No public API for third-party integration
+   - Recommendation: Defer or reconsider inclusion
+   - Alternative: Document as "not currently supported"
+
+5. 🎯 **GitHub Copilot** - Fifth priority
+   - ✅ Best OAuth implementation available
+   - Full native OAuth with device flow
+   - Integrated billing (subscription includes API)
+   - Easiest implementation once prioritized
+
+**Phase 3 - Supporting Frameworks:**
+6. ✅ **Aider** - Simple BYOK, free and open-source
+7. ✅ **Goose** - Free OSS, integrates other providers
+8. ✅ **Sourcegraph Amp** - OAuth + SSO, ad-supported free tier
+9. ✅ **OpenCode** - Flexible multi-provider OAuth support
+
+---
+
+### Technical Implementation Recommendations
+
+**For Immediate Implementation (Phases 1-2):**
+
+**1. Claude Code (Priority 1)**
+```
+Week 1-2: API Key Implementation
+- Implement secure API key storage
+- Add cost tracking and transparency
+- User education: "API separate from subscription"
+- Test with Anthropic API
+
+Future: OAuth Integration
+- Monitor Anthropic for official OAuth announcement
+- Prepare OAuth flow architecture
+- Consider third-party bridges (Roo-Code pattern)
+```
+
+**2. OpenAI Codex (Priority 2)**
+```
+Week 2-3: Platform API Integration
+- Implement OpenAI Platform API key flow
+- Clear separation messaging (ChatGPT Plus ≠ API)
+- Cost calculator for token usage
+- Test with codex-mini-latest
+
+Future: Unofficial OAuth (Optional)
+- Evaluate third-party plugins (opencode-openai-codex-auth)
+- Add disclaimers about ToS compliance
+- Personal use only warnings
+```
+
+**3. Gemini CLI (Priority 3)**
+```
+Week 3-4: Dual Implementation
+- Phase A: API key with free tier (15 req/min)
+- Phase B: OAuth for Gemini Advanced users
+- Google Cloud Console OAuth client setup
+- Subscription detection and quota display
+```
+
+**4. Cursor (Priority 4)**
+```
+Week 4: Technical Assessment
+- Research: Does Cursor expose any API?
+- Check for MCP server capabilities
+- Decision: Implement, defer, or remove
+- Alternative: Partner with Cursor for API access?
+
+Current Status: Not suitable for integration
+- Recommend documenting limitation
+- Provide alternative (use Cursor directly)
+```
+
+**5. GitHub Copilot (Priority 5)**
+```
+Week 5-6: OAuth Device Flow
+- Easiest OAuth implementation
+- GitHub device flow well-documented
+- api.githubcopilot.com integration
+- Subscription quota management
+- Best user experience overall
+```
+
+---
+
+### Cursor Integration Challenge
+
+**Issue:** Cursor is an IDE/client, not an API provider
+
+**Options:**
+1. **Skip Integration** - Document as unsupported, recommend direct usage
+2. **Wait for API** - Contact Cursor team about public API plans
+3. **MCP Bridge** - Investigate if Cursor can act as MCP server
+4. **Defer** - Mark as "coming soon" pending technical solution
+
+**Recommendation:** Document limitation and move to "Future Considerations"
 
 ---
 
@@ -1154,19 +1255,27 @@ Based on OAuth maturity and subscription integration:
 │  Select Your Coding Agent               │
 ├─────────────────────────────────────────┤
 │                                         │
-│  ✓ GitHub Copilot                       │
-│    Already subscribed? Connect now!     │
-│    [Connect with GitHub] [Use API Key]  │
-│                                         │
-│  ○ Claude Code                          │
+│  ⭐ Claude Code (Recommended)           │
 │    [Connect with API Key]               │
-│    (OAuth coming soon)                  │
+│    OAuth coming soon                    │
+│                                         │
+│  ○ OpenAI Codex                         │
+│    [Connect with API Key]               │
+│    Note: Separate from ChatGPT Plus     │
 │                                         │
 │  ○ Gemini Advanced                      │
 │    [Connect with Google] [Use API Key]  │
+│    Free tier available                  │
 │                                         │
-│  ○ Aider (Free)                         │
-│    Choose your LLM provider...          │
+│  ○ GitHub Copilot                       │
+│    Already subscribed? Connect now!     │
+│    [Connect with GitHub] [Use API Key]  │
+│                                         │
+│  ○ Cursor                               │
+│    Coming soon...                       │
+│                                         │
+│  ○ More Agents...                       │
+│    Aider, Goose, Amp, OpenCode          │
 │                                         │
 └─────────────────────────────────────────┘
 ```
@@ -1274,30 +1383,65 @@ dependencies:
 
 ### Migration Path
 
-**Phase 1: API Keys Only (MVP)**
-- Support all agents via API keys
-- Implement secure storage
-- Basic cost tracking
+**Aligned with Product Priorities:**
 
-**Phase 2: GitHub Copilot OAuth**
-- Implement OAuth device flow
-- Subscription detection
-- Usage quota display
+**Phase 1: Core Frameworks - API Keys (Weeks 1-4)**
+- **Claude Code** - API key implementation (Priority 1)
+  - Secure storage via flutter_secure_storage
+  - Cost tracking and transparency UI
+  - User education about API vs subscription billing
+- **OpenAI Codex** - Platform API integration (Priority 2)
+  - API key flow with clear billing separation
+  - Token usage calculator
+  - ChatGPT Plus ≠ API messaging
+- **Gemini CLI** - API key + free tier (Priority 3)
+  - Free tier implementation (15 req/min)
+  - Basic API key flow
+  - Prepare for OAuth in Phase 2
 
-**Phase 3: Google/Gemini OAuth**
-- Implement Google OAuth
-- Support Gemini Advanced subscriptions
-- Cross-provider quota management
+**Phase 2: OAuth Implementation (Weeks 5-8)**
+- **Gemini OAuth** - First OAuth implementation (Priority 3)
+  - Google Cloud OAuth client setup
+  - OAuth flow for Gemini Advanced users
+  - Subscription detection and quota display
+- **Cursor Assessment** - Technical evaluation (Priority 4)
+  - Research API availability
+  - Decision: implement, defer, or skip
+  - Document limitations if not viable
+- **GitHub Copilot OAuth** - Best OAuth experience (Priority 5)
+  - OAuth device flow implementation
+  - Integrated billing (easiest implementation)
+  - Subscription quota management
 
-**Phase 4: Third-Party OAuth**
-- OpenCode Claude Pro/Max OAuth
-- Sourcegraph Amp OAuth
-- Evaluate unofficial ChatGPT OAuth
+**Phase 3: Enhanced Authentication (Weeks 9-12)**
+- **Claude Code OAuth** (when available)
+  - Monitor Anthropic for official OAuth launch
+  - Implement official OAuth if released
+  - OR: Evaluate third-party bridges (Roo-Code pattern)
+- **OpenAI Unofficial OAuth** (optional)
+  - Evaluate third-party plugins
+  - Add disclaimers and ToS warnings
+  - Personal use only limitations
 
-**Phase 5: Official Anthropic OAuth**
-- If/when Anthropic adds subscription OAuth
-- Migrate users from API keys
-- Unified subscription experience
+**Phase 4: Supporting Frameworks (Weeks 13-16)**
+- **Aider** - BYOK model
+  - Multi-provider key management
+  - Local model support (Ollama)
+- **Goose** - Integration layer
+  - Connect to existing subscriptions
+  - OAuth passthrough from other providers
+- **Sourcegraph Amp** - Enterprise OAuth
+  - SSO/SAML integration
+  - MCP OAuth support
+- **OpenCode** - Multi-provider
+  - OpenCode Zen integration
+  - Claude Pro/Max OAuth support
+
+**Phase 5: Long-term Enhancements**
+- Official Anthropic OAuth (if/when released)
+- Unified multi-provider subscription dashboard
+- Cross-provider usage analytics
+- Advanced cost optimization features
 
 ---
 
