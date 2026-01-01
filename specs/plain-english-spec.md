@@ -603,7 +603,8 @@ AgentAPI is currently in-memory only. For true session persistence, we need:
 To avoid subscribed users paying normal API prices, the portal needs OAuth integration to authenticate users with their existing framework subscriptions. This section details each framework's subscription offerings and OAuth capabilities.
 
 **Important Context:**
-- **Third-Party Provider**: We are a third-party application, not first-party providers
+- **Third-Party Client App**: We are building an independent app that provides access to existing frameworks (Claude, OpenAI, Gemini, etc.) - we have no special partnerships or relationships with these companies
+- **Consumer of Existing APIs**: We access these frameworks through their publicly available APIs, CLIs, and tools
 - **AgentAPI Layer**: For Claude Code, AgentAPI handles subscription authentication automatically
 - **Default Behavior**: AgentAPI defaults to using authenticated Claude subscriptions when no API key is provided
 - **Hybrid Support**: Users can choose between subscription authentication or API key billing
@@ -642,7 +643,7 @@ To avoid subscribed users paying normal API prices, the portal needs OAuth integ
 - ✅ **AgentAPI supports subscription authentication** by default
 - When user has active Claude Pro/Max subscription, AgentAPI uses it automatically
 - No explicit OAuth needed - subscription authentication is built-in
-- Third-party provider note: We are a third-party app accessing via AgentAPI
+- Note: We are an independent client app accessing Claude Code via publicly available AgentAPI
 
 **Implementation Strategy:**
 ```
@@ -665,12 +666,14 @@ Option 3: Hybrid Approach
 - Give user choice between subscription vs API key
 ```
 
-**Third-Party Provider Considerations:**
-- We are a third-party app, not first-party Anthropic
+**Independent Client App Considerations:**
+- We are an independent app with no partnership or special relationship with Anthropic
+- We provide users access to Claude Code through publicly available tools (AgentAPI)
 - Access Claude Code via AgentAPI (local or cloud runtime)
 - Subscription authentication handled by AgentAPI layer
 - No direct OAuth integration needed with Anthropic
 - AgentAPI manages the authentication flow
+- Users connect their own Claude subscriptions or API keys
 
 **Recommendation:**
 - **Phase 1**: Subscription authentication via AgentAPI (default)
@@ -1044,14 +1047,17 @@ Multi-Provider Approach:
 
 ### Implementation Priorities
 
+**Important Note:**
+We are building an independent mobile app that provides users access to existing AI coding frameworks. We have no partnerships, special relationships, or affiliations with any of these companies (Anthropic, OpenAI, Google, GitHub, etc.). We access their frameworks through publicly available APIs, CLIs, and tools. Users connect using their own subscriptions and API keys.
+
 **Product Priority Order (as specified):**
 
 **Phase 1 - Primary Frameworks:**
 1. 🎯 **Claude Code** - Top priority
-   - Start with API key implementation (official method)
-   - Monitor for official OAuth release
-   - Consider third-party OAuth bridges with disclaimers
-   - Note: API separate from Pro/Max subscription ($20-$100/mo)
+   - Start with subscription authentication via AgentAPI (default)
+   - Optional API key for non-subscribers
+   - AgentAPI handles subscription authentication automatically
+   - Note: We access via publicly available AgentAPI (no special partnership)
 
 2. 🎯 **OpenAI Codex** - Second priority
    - Start with OpenAI Platform API key
@@ -1105,11 +1111,13 @@ Week 1-2 (Alternative): API Key Support
 - Cost tracking and transparency for API usage
 - Hybrid mode: Auto-detect subscription, offer API key fallback
 
-Third-Party Provider Implementation:
-- We are third-party app accessing via AgentAPI layer
+Independent Client App Implementation:
+- We are an independent app (no Anthropic partnership)
+- Access Claude Code via publicly available AgentAPI
 - AgentAPI handles Claude subscription authentication
 - No direct OAuth integration needed with Anthropic
 - Focus on AgentAPI connection management
+- Users bring their own Claude subscriptions/API keys
 ```
 
 **2. OpenAI Codex (Priority 2)**
