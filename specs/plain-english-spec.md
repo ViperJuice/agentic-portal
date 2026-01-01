@@ -596,7 +596,913 @@ AgentAPI is currently in-memory only. For true session persistence, we need:
 
 ---
 
-## 19. Open Questions (Remaining)
+## 19. OAuth & Subscription Integration for AI Frameworks
+
+### Overview
+
+To avoid subscribed users paying normal API prices, the portal needs OAuth integration to authenticate users with their existing framework subscriptions. This section details each framework's subscription offerings and OAuth capabilities.
+
+**Important Context:**
+- **Third-Party Client App**: We are building an independent app that provides access to existing frameworks (Claude, OpenAI, Gemini, etc.) - we have no special partnerships or relationships with these companies
+- **Consumer of Existing APIs**: We access these frameworks through their publicly available APIs, CLIs, and tools
+- **AgentAPI Layer**: For Claude Code, AgentAPI handles subscription authentication automatically
+- **Default Behavior**: AgentAPI defaults to using authenticated Claude subscriptions when no API key is provided
+- **Hybrid Support**: Users can choose between subscription authentication or API key billing
+
+### Framework Comparison Matrix
+
+| Framework | Has Subscription? | Subscription Price | API Separate? | OAuth Support | Integration Strategy |
+|-----------|-------------------|-------------------|---------------|---------------|---------------------|
+| **Claude Code** | Yes (Pro/Max) | $20/$100/mo | Optional | ✅ AgentAPI default | Subscription via AgentAPI |
+| **Gemini CLI** | Yes (Advanced) | $19.99/mo | Yes | Official OAuth | Native OAuth for API |
+| **OpenAI Codex** | Yes (Plus/Pro) | $20/$200/mo | Yes | MCP only | Third-party plugins |
+| **GitHub Copilot** | Yes (5 tiers) | $0-$39/mo | No (integrated) | Native OAuth | REST API + Device Flow |
+| **Cursor** | Yes (4 tiers) | $20-$200/mo | No (integrated) | MCP OAuth | Native MCP support |
+| **Aider** | No | Free (OSS) | N/A | API keys only | No subscription |
+| **Goose** | No | Free (OSS) | N/A | Integrates others | No subscription |
+| **Sourcegraph Amp** | Yes (Free/Paid) | $0+/mo | No (integrated) | OAuth + SSO | MCP OAuth support |
+| **OpenCode** | Optional (Zen) | Pay-as-you-go | Optional | Claude OAuth | Supports subscription OAuth |
+
+---
+
+### 1. Claude Code (Anthropic)
+
+**Subscription Plans:**
+- **Pro**: $20/month (or $17/month annual)
+- **Max**: $100/month
+- **Team**: Custom pricing
+- **Enterprise**: Custom pricing
+
+**Key Findings:**
+- Pro/Max plans share usage limits between Claude web and Claude Code
+- AgentAPI **defaults to authenticated Claude subscription** when no API key provided
+- If `ANTHROPIC_API_KEY` is explicitly set, it uses API billing instead
+- API offers larger context (1M tokens vs 200K for subscriptions)
+
+**OAuth Status:**
+- ✅ **AgentAPI supports subscription authentication** by default
+- When user has active Claude Pro/Max subscription, AgentAPI uses it automatically
+- No explicit OAuth needed - subscription authentication is built-in
+- Note: We are an independent client app accessing Claude Code via publicly available AgentAPI
+
+**Implementation Strategy:**
+```
+Option 1: Subscription Authentication (Recommended - Default)
+- User authenticates with Claude Pro/Max account on desktop
+- AgentAPI detects active subscription
+- Portal connects to AgentAPI without providing API key
+- Uses subscription credits automatically
+- Best user experience - no API key management needed
+
+Option 2: API Key (Optional - For users without subscriptions)
+- User provides Anthropic API key
+- Pay per token (separate billing)
+- Useful for users without Pro/Max subscriptions
+- Or for users who want separate billing
+
+Option 3: Hybrid Approach
+- Detect if subscription is available via AgentAPI
+- Fall back to API key if no subscription found
+- Give user choice between subscription vs API key
+```
+
+**Independent Client App Considerations:**
+- We are an independent app with no partnership or special relationship with Anthropic
+- We provide users access to Claude Code through publicly available tools (AgentAPI)
+- Access Claude Code via AgentAPI (local or cloud runtime)
+- Subscription authentication handled by AgentAPI layer
+- No direct OAuth integration needed with Anthropic
+- AgentAPI manages the authentication flow
+- Users connect their own Claude subscriptions or API keys
+
+**Recommendation:**
+- **Phase 1**: Subscription authentication via AgentAPI (default)
+- **Phase 2**: Optional API key for non-subscribers
+- **Phase 3**: Hybrid mode with automatic detection and fallback
+
+---
+
+### 2. Gemini CLI (Google)
+
+**Subscription Plans:**
+- **Free**: $0 (limited usage)
+- **Gemini Advanced**: $19.99/month (part of Google One AI Premium)
+- **Code Assist (Individual)**: Included in Google AI Pro/Ultra
+- **Code Assist (Organization)**: Enterprise licensing
+
+**Key Findings:**
+- API pricing is **separate** from Gemini Advanced subscription
+- Free tier available with rate limits
+- Pay-as-you-go: $0.02-$5.00 per million tokens depending on model
+- OAuth designed for model tuning and semantic retrieval features
+
+**OAuth Status:**
+- ✅ **Official OAuth support** via Google Cloud
+- OAuth scope: `https://www.googleapis.com/auth/generative-language.retriever`
+- Recommended to start with API keys, use OAuth for advanced features
+- Full documentation at [ai.google.dev/gemini-api/docs/oauth](https://ai.google.dev/gemini-api/docs/oauth)
+
+**Implementation Strategy:**
+```
+Option 1: API Key (Recommended for MVP)
+- Simple setup via Google AI Studio
+- Free tier: 15 requests/minute
+- Paid tier: Pay-as-you-go billing
+
+Option 2: OAuth (Advanced Features)
+- Create OAuth 2.0 Client ID in Google Cloud Console
+- Select "Desktop app" application type
+- Required for model tuning, semantic retrieval
+- May enable subscription-based access in future
+```
+
+**Recommendation:**
+- **Phase 1**: API key with free tier
+- **Phase 2**: OAuth for users with Gemini Advanced subscriptions
+- **Phase 3**: Check if Google enables subscription credit passthrough
+
+---
+
+### 3. OpenAI Codex
+
+**Subscription Plans:**
+- **ChatGPT Plus**: $20/month (30-150 messages/5hrs)
+- **ChatGPT Pro**: $200/month (300-1,500 messages/5hrs)
+- **ChatGPT Business**: Custom pricing
+- **ChatGPT Enterprise**: Custom pricing
+
+**Key Findings:**
+- ChatGPT subscriptions are **completely separate** from OpenAI Platform API
+- Two billing systems: chatgpt.com vs platform.openai.com
+- Old Codex API deprecated (March 2023), rebuilt into ChatGPT
+- New `codex-mini-latest`: $1.50/1M input, $6/1M output tokens
+- ChatGPT Plus includes Codex Web and Codex CLI
+
+**OAuth Status:**
+- ✅ **Official OAuth** for MCP servers only
+- ❌ **No official OAuth** for using ChatGPT Plus credits via API
+- ✅ **Third-party plugins** exist (e.g., `opencode-openai-codex-auth`, `ai-sdk-provider-chatgpt-oauth`)
+- Community tools enable ChatGPT subscription → API bridge (personal use only)
+
+**Implementation Strategy:**
+```
+Option 1: OpenAI Platform API Key
+- User creates API key at platform.openai.com
+- Pay per token (separate from ChatGPT Plus)
+- $5 free credits for new accounts
+
+Option 2: Third-Party OAuth (Unofficial)
+- Use community plugins (e.g., opencode-openai-codex-auth)
+- Authenticate with ChatGPT Plus/Pro account
+- Uses OpenAI's OAuth flow (same as official Codex CLI)
+- **Risk**: Unofficial, may violate ToS
+
+Option 3: MCP OAuth (Official but limited)
+- For MCP server integrations only
+- Uses OAuth 2.0 with PKCE
+- Doesn't provide API access to Codex
+```
+
+**Recommendation:**
+- **Phase 1**: OpenAI Platform API key only (official method)
+- **Phase 2**: Clearly document that ChatGPT Plus ≠ API access
+- **Phase 3**: If third-party OAuth, add disclaimer about unofficial status
+
+---
+
+### 4. GitHub Copilot
+
+**Subscription Plans:**
+- **Free**: $0 (limited usage)
+- **Pro**: $10/month
+- **Pro+**: $39/month
+- **Business**: $19/user/month
+- **Enterprise**: $39/user/month
+
+**Key Findings:**
+- Subscription **includes** API access (not separate billing)
+- REST API available for programmatic management
+- OAuth device flow for authentication
+- Third-party tools can access via `api.githubcopilot.com` (OpenAI-compatible)
+- Enhanced MCP OAuth support (Nov 2025) for JetBrains, Eclipse, Xcode
+
+**OAuth Status:**
+- ✅ **Full native OAuth support**
+- OAuth device flow for CLI tools
+- REST API with OAuth app tokens or PATs
+- Scopes: `manage_billing:copilot`, `read:org`
+- Dynamic Client Registration (DCR) for MCP servers
+- Fallback to client-credentials workflow
+
+**Implementation Strategy:**
+```
+Recommended: OAuth Device Flow
+1. User initiates connection in mobile app
+2. Portal starts OAuth device flow
+3. User authorizes at GitHub
+4. Portal receives access token
+5. Use token with api.githubcopilot.com
+
+API Access:
+- Endpoint: https://api.githubcopilot.com
+- OpenAI-compatible format
+- Uses GitHub subscription credits
+- REST API for seat management
+```
+
+**Recommendation:**
+- ✅ **Highest priority for OAuth implementation**
+- Native support, well-documented, subscription-inclusive
+- Use GitHub's official OAuth device flow
+- **Best user experience** - one subscription, full access
+
+---
+
+### 5. Cursor
+
+**Subscription Plans:**
+- **Hobby**: Free (limited)
+- **Pro**: $20/month (500 fast requests)
+- **Pro Plus**: $60/month (1,500 fast requests)
+- **Ultra**: $200/month (20× Pro usage)
+- **Business/Enterprise**: Custom (SAML/SSO)
+
+**Key Findings:**
+- Subscription **includes** API access (integrated billing)
+- June 2025: Moved from request-based to usage-based pricing
+- Native OAuth for MCP server integrations
+- No separate API - Cursor is the client
+
+**OAuth Status:**
+- ✅ **OAuth for MCP integrations**
+- Automatic OAuth handling for MCP servers
+- SAML/SSO for Enterprise
+- No public API for third-party clients
+
+**Implementation Strategy:**
+```
+Challenge: Cursor is a client, not an API provider
+
+Option 1: Not Applicable
+- Cursor is an IDE, not an agent we can integrate
+- Users would use Cursor directly, not through our portal
+
+Option 2: MCP Bridge (Theoretical)
+- If Cursor exposes MCP server capabilities
+- Portal could connect as MCP client
+- Currently not documented
+```
+
+**Recommendation:**
+- ⚠️ **May not be suitable for portal integration**
+- Cursor is an IDE client, not an agent API
+- Consider removing from supported agents list
+- Keep for reference but focus on API-accessible agents
+
+---
+
+### 6. Aider
+
+**Subscription Plans:**
+- **None** - Completely free and open-source
+
+**Key Findings:**
+- No subscriptions or licensing fees
+- Users pay only for underlying LLM API (OpenAI, Anthropic, DeepSeek, etc.)
+- Typical cost: $0.01-$0.10 per feature with GPT-4o
+- Supports local models via Ollama (completely free)
+- Supports 75+ LLM providers
+
+**OAuth Status:**
+- ❌ **No OAuth** (no subscription to authenticate)
+- API key configuration for chosen LLM provider
+- Supports BYOK (Bring Your Own Key)
+
+**Implementation Strategy:**
+```
+BYOK Model:
+- User provides API key for their chosen LLM
+- Options: OpenAI, Anthropic, DeepSeek, local models
+- Aider CLI uses the key directly
+- No intermediary billing
+
+Portal Integration:
+1. User selects Aider agent
+2. User chooses LLM provider (Claude, GPT, DeepSeek, etc.)
+3. User provides API key for that provider
+4. Portal passes key to Aider via environment variable
+```
+
+**Recommendation:**
+- ✅ **Simple BYOK implementation**
+- No OAuth needed - standard API key flow
+- Focus on secure storage of user-provided keys
+- Use `flutter_secure_storage` for Keychain/Keystore
+
+---
+
+### 7. Goose
+
+**Subscription Plans:**
+- **None** - Free and open-source (by Block/Jack Dorsey)
+
+**Key Findings:**
+- No native subscription model
+- Integrates with existing subscriptions: GitHub Copilot, Cursor, OpenAI, Anthropic
+- Can use local models (Ollama, Docker Model Runner) - completely free
+- $10 free credits via Tetrate authentication
+- Saves developers ~20% of time
+
+**OAuth Status:**
+- ⚠️ **Hybrid** - No native OAuth, but supports others' OAuth
+- Tetrate auto-authentication
+- Can use GitHub Copilot subscription (via GitHub OAuth)
+- Can use OpenAI/Anthropic (via API keys)
+
+**Implementation Strategy:**
+```
+Bring Your Own Subscription:
+1. User selects Goose agent
+2. User connects existing subscription:
+   - GitHub Copilot (OAuth)
+   - OpenAI (API key)
+   - Anthropic (API key)
+   - Cursor (if integrated)
+3. Goose uses that provider's credentials
+
+Local Model Option:
+- Docker Model Runner (no auth needed)
+- Ollama (local, private, free)
+```
+
+**Recommendation:**
+- ✅ **Flexible integration model**
+- Leverage OAuth from connected providers
+- Highlight free local model option
+- Position as cost-effective alternative
+
+---
+
+### 8. Sourcegraph Amp
+
+**Subscription Plans:**
+- **Free**: $0 (ad-supported, usage limits)
+- **Paid**: $20+/month (estimated, exact pricing not public)
+
+**Key Findings:**
+- Ad-supported free tier (developer attention subsidizes costs)
+- Enterprise plans with SSO/SAML/OAuth
+- Built-in OAuth for MCP servers
+- Available as CLI and VS Code extension
+
+**OAuth Status:**
+- ✅ **Full OAuth support**
+- OAuth for MCP servers (automatic for Linear, etc.)
+- Enterprise SSO: SAML, OpenID Connect, OAuth
+- API key for non-interactive environments (`AMP_API_KEY`)
+
+**Implementation Strategy:**
+```
+Option 1: API Key
+- Set AMP_API_KEY environment variable
+- For CI/CD, scripts, automation
+- Contact amp-devs@ampcode.com for billing
+
+Option 2: OAuth (Recommended)
+- OAuth flow for user authentication
+- MCP server OAuth for extensions
+- Enterprise: SAML/OpenID Connect
+
+Integration Flow:
+1. User initiates Amp connection
+2. Portal starts OAuth flow
+3. User authorizes at ampcode.com
+4. Portal receives access token
+5. Use token with Amp API
+```
+
+**Recommendation:**
+- ✅ **Implement OAuth for paid users**
+- Support API key for scripting use cases
+- Highlight free tier for trial users
+- Enterprise: Full SSO integration
+
+---
+
+### 9. OpenCode
+
+**Subscription Plans:**
+- **Free**: Open source
+- **OpenCode Zen**: Pay-as-you-go (optional curated models)
+
+**Key Findings:**
+- Open source AI coding agent
+- Optional OpenCode Zen subscription for curated models
+- Supports 75+ LLM providers
+- Can authenticate with Claude Pro/Max via OAuth
+- Third-party ChatGPT subscription OAuth plugins available
+
+**OAuth Status:**
+- ✅ **Supports OAuth** for some providers
+- Claude Pro/Max: Opens browser for OAuth authentication
+- ChatGPT Plus/Pro: Via third-party plugins
+- API key authentication for most providers
+
+**Implementation Strategy:**
+```
+Multi-Provider Approach:
+
+1. OpenCode Zen (Official):
+   - User runs /connect → opencode
+   - Authenticate at opencode.ai/auth
+   - Copy API key to portal
+   - Pay-as-you-go billing
+
+2. Claude Pro/Max OAuth:
+   - User selects Claude Pro/Max option
+   - OpenCode opens browser for OAuth
+   - Portal captures authentication
+   - Uses subscription credits
+
+3. ChatGPT Subscription (Third-Party):
+   - Via opencode-openai-codex-auth plugin
+   - OAuth authentication
+   - Uses ChatGPT Plus/Pro subscription
+   - Personal use only
+
+4. BYOK (Bring Your Own Key):
+   - Support 75+ LLM providers
+   - User provides API key
+   - Standard authentication flow
+```
+
+**Recommendation:**
+- ✅ **Flexible, multi-option approach**
+- Prioritize Claude Pro/Max OAuth (native support)
+- OpenCode Zen as premium option
+- Third-party ChatGPT OAuth with disclaimers
+- BYOK for maximum flexibility
+
+---
+
+### Implementation Priorities
+
+**Important Note:**
+We are building an independent mobile app that provides users access to existing AI coding frameworks. We have no partnerships, special relationships, or affiliations with any of these companies (Anthropic, OpenAI, Google, GitHub, etc.). We access their frameworks through publicly available APIs, CLIs, and tools. Users connect using their own subscriptions and API keys.
+
+**Product Priority Order (as specified):**
+
+**Phase 1 - Primary Frameworks:**
+1. 🎯 **Claude Code** - Top priority
+   - Start with subscription authentication via AgentAPI (default)
+   - Optional API key for non-subscribers
+   - AgentAPI handles subscription authentication automatically
+   - Note: We access via publicly available AgentAPI (no special partnership)
+
+2. 🎯 **OpenAI Codex** - Second priority
+   - Start with OpenAI Platform API key
+   - ChatGPT Plus ($20/mo) separate from API billing
+   - Third-party OAuth available but unofficial
+   - Clear user communication about separate billing systems
+
+3. 🎯 **Gemini CLI** - Third priority
+   - Official OAuth support available
+   - Start with API key + free tier for MVP
+   - Implement OAuth for Gemini Advanced subscribers ($19.99/mo)
+   - Best documentation of the three
+
+**Phase 2 - Additional Frameworks:**
+4. 🎯 **Cursor** - Fourth priority
+   - ⚠️ Technical limitation: Cursor is IDE client, not API provider
+   - No public API for third-party integration
+   - Recommendation: Defer or reconsider inclusion
+   - Alternative: Document as "not currently supported"
+
+5. 🎯 **GitHub Copilot** - Fifth priority
+   - ✅ Best OAuth implementation available
+   - Full native OAuth with device flow
+   - Integrated billing (subscription includes API)
+   - Easiest implementation once prioritized
+
+**Phase 3 - Supporting Frameworks:**
+6. ✅ **Aider** - Simple BYOK, free and open-source
+7. ✅ **Goose** - Free OSS, integrates other providers
+8. ✅ **Sourcegraph Amp** - OAuth + SSO, ad-supported free tier
+9. ✅ **OpenCode** - Flexible multi-provider OAuth support
+
+---
+
+### Technical Implementation Recommendations
+
+**For Immediate Implementation (Phases 1-2):**
+
+**1. Claude Code (Priority 1)**
+```
+Week 1-2: Subscription Authentication via AgentAPI (Recommended)
+- Connect to AgentAPI without providing API key
+- AgentAPI automatically uses Claude Pro/Max subscription if available
+- Detect subscription status and display to user
+- Show usage against subscription quota
+- Clear messaging: "Using your Claude [Pro/Max] subscription"
+
+Week 1-2 (Alternative): API Key Support
+- Implement secure API key storage for non-subscribers
+- Optional API key input for users who prefer separate billing
+- Cost tracking and transparency for API usage
+- Hybrid mode: Auto-detect subscription, offer API key fallback
+
+Independent Client App Implementation:
+- We are an independent app (no Anthropic partnership)
+- Access Claude Code via publicly available AgentAPI
+- AgentAPI handles Claude subscription authentication
+- No direct OAuth integration needed with Anthropic
+- Focus on AgentAPI connection management
+- Users bring their own Claude subscriptions/API keys
+```
+
+**2. OpenAI Codex (Priority 2)**
+```
+Week 2-3: Platform API Integration
+- Implement OpenAI Platform API key flow
+- Clear separation messaging (ChatGPT Plus ≠ API)
+- Cost calculator for token usage
+- Test with codex-mini-latest
+
+Future: Unofficial OAuth (Optional)
+- Evaluate third-party plugins (opencode-openai-codex-auth)
+- Add disclaimers about ToS compliance
+- Personal use only warnings
+```
+
+**3. Gemini CLI (Priority 3)**
+```
+Week 3-4: Dual Implementation
+- Phase A: API key with free tier (15 req/min)
+- Phase B: OAuth for Gemini Advanced users
+- Google Cloud Console OAuth client setup
+- Subscription detection and quota display
+```
+
+**4. Cursor (Priority 4)**
+```
+Week 4: Technical Assessment
+- Research: Does Cursor expose any API?
+- Check for MCP server capabilities
+- Decision: Implement, defer, or remove
+- Alternative: Partner with Cursor for API access?
+
+Current Status: Not suitable for integration
+- Recommend documenting limitation
+- Provide alternative (use Cursor directly)
+```
+
+**5. GitHub Copilot (Priority 5)**
+```
+Week 5-6: OAuth Device Flow
+- Easiest OAuth implementation
+- GitHub device flow well-documented
+- api.githubcopilot.com integration
+- Subscription quota management
+- Best user experience overall
+```
+
+---
+
+### Cursor Integration Challenge
+
+**Issue:** Cursor is an IDE/client, not an API provider
+
+**Options:**
+1. **Skip Integration** - Document as unsupported, recommend direct usage
+2. **Wait for API** - Contact Cursor team about public API plans
+3. **MCP Bridge** - Investigate if Cursor can act as MCP server
+4. **Defer** - Mark as "coming soon" pending technical solution
+
+**Recommendation:** Document limitation and move to "Future Considerations"
+
+---
+
+### OAuth Implementation Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    MOBILE APP (Flutter)                      │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │         OAuth Manager (Riverpod Service)               │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐            │  │
+│  │  │ GitHub   │  │ Google   │  │ Anthropic│  ...       │  │
+│  │  │ OAuth    │  │ OAuth    │  │ OAuth    │            │  │
+│  │  └──────────┘  └──────────┘  └──────────┘            │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                           │                                  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │      Secure Token Storage (flutter_secure_storage)     │  │
+│  │  - Keychain (iOS) / Keystore (Android)                │  │
+│  │  - Encrypted token storage                            │  │
+│  │  - Refresh token management                           │  │
+│  └────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      AgentAPI / Runtime                      │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  Agent Runtime with OAuth Token Injection              │  │
+│  │  - Receives OAuth tokens from mobile app              │  │
+│  │  - Uses tokens for agent authentication               │  │
+│  │  - Handles token refresh via callback to app          │  │
+│  └────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### OAuth Flow Examples
+
+**GitHub Copilot Device Flow:**
+```
+1. User selects "Connect GitHub Copilot" in mobile app
+2. App requests device code from GitHub OAuth
+3. Display code + URL to user (e.g., github.com/login/device)
+4. User opens URL on any device, enters code
+5. App polls GitHub OAuth for authorization
+6. Upon success, receive access token
+7. Store in flutter_secure_storage
+8. Pass to AgentAPI for Copilot calls
+```
+
+**Google OAuth (Gemini):**
+```
+1. User selects "Connect Gemini Advanced"
+2. App opens OAuth web view
+3. User logs in with Google account
+4. Grants scope: generative-language.retriever
+5. Google redirects with authorization code
+6. App exchanges code for access + refresh tokens
+7. Store in flutter_secure_storage
+8. Use access token for Gemini API calls
+```
+
+**Third-Party OAuth (OpenAI via ChatGPT):**
+```
+1. User selects "Connect ChatGPT Plus" (if supported)
+2. Display warning: "Unofficial integration, personal use only"
+3. User confirms understanding
+4. App initiates OpenAI OAuth flow
+5. User authenticates at OpenAI
+6. Receive access token (via third-party plugin)
+7. Store with "unofficial" flag
+8. Use for Codex API access
+```
+
+---
+
+### Security Considerations
+
+**Token Storage:**
+- Use `flutter_secure_storage` (Keychain on iOS, Keystore on Android)
+- Never store tokens in plain text or shared preferences
+- Encrypt tokens at rest
+- Implement token rotation
+
+**OAuth Best Practices:**
+- Use PKCE (Proof Key for Code Exchange) for all flows
+- Implement state parameter to prevent CSRF
+- Use short-lived access tokens with refresh tokens
+- Validate redirect URIs strictly
+- Implement token revocation on logout
+
+**Third-Party OAuth Risks:**
+- Clearly label unofficial integrations
+- Warn users about potential ToS violations
+- Obtain explicit user consent
+- Consider liability implications
+- Monitor for changes in provider policies
+
+**API Key Security:**
+- Store in secure storage, never in code or config
+- Implement key rotation capability
+- Allow users to revoke/change keys
+- Don't log or transmit keys in clear text
+- Consider using backend proxy for additional security
+
+---
+
+### User Experience Flow
+
+**Onboarding - Agent Selection:**
+```
+┌─────────────────────────────────────────┐
+│  Select Your Coding Agent               │
+├─────────────────────────────────────────┤
+│                                         │
+│  ⭐ Claude Code (Recommended)           │
+│    Have Pro/Max? Uses it automatically! │
+│    [Connect] [Use API Key Instead]      │
+│                                         │
+│  ○ OpenAI Codex                         │
+│    [Connect with API Key]               │
+│    Note: Separate from ChatGPT Plus     │
+│                                         │
+│  ○ Gemini Advanced                      │
+│    [Connect with Google] [Use API Key]  │
+│    Free tier available                  │
+│                                         │
+│  ○ GitHub Copilot                       │
+│    Already subscribed? Connect now!     │
+│    [Connect with GitHub] [Use API Key]  │
+│                                         │
+│  ○ Cursor                               │
+│    Coming soon...                       │
+│                                         │
+│  ○ More Agents...                       │
+│    Aider, Goose, Amp, OpenCode          │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**Subscription Detection:**
+```
+When user connects Claude Code with subscription:
+┌─────────────────────────────────────────┐
+│  Claude Code Connected!                 │
+├─────────────────────────────────────────┤
+│  Plan: Claude Pro ($20/month)           │
+│  Usage: 42 / 200 messages remaining     │
+│                                         │
+│  ✓ Using your Claude subscription       │
+│  ✗ No additional API charges            │
+│  ℹ Via AgentAPI (subscription mode)     │
+│                                         │
+│  [View Usage] [Switch to API Key]       │
+└─────────────────────────────────────────┘
+
+When user connects Claude Code with API key:
+┌─────────────────────────────────────────┐
+│  Claude Code Connected!                 │
+├─────────────────────────────────────────┤
+│  Authentication: API Key                │
+│                                         │
+│  ⚠ Pay-per-use billing                  │
+│  ⚠ Separate from Claude Pro subscription│
+│                                         │
+│  Estimated cost: $0.003/request         │
+│  💡 Have Claude Pro? Use subscription   │
+│                                         │
+│  [Switch to Subscription] [Disconnect]  │
+└─────────────────────────────────────────┘
+
+When user connects GitHub Copilot:
+┌─────────────────────────────────────────┐
+│  GitHub Copilot Connected!              │
+├─────────────────────────────────────────┤
+│  Plan: Pro ($10/month)                  │
+│  Usage: 127 / 500 requests this month   │
+│                                         │
+│  ✓ Using your subscription              │
+│  ✗ No additional API charges            │
+│                                         │
+│  [View Usage] [Disconnect]              │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### Cost Transparency
+
+**For Users with Subscriptions (OAuth):**
+- ✅ Display "Using your [Plan Name] subscription"
+- ✅ Show usage against subscription quota
+- ✅ Warn when approaching limits
+- ✅ Clear "No additional charges" messaging
+
+**For Users with API Keys:**
+- ⚠️ Display "Pay-per-use billing"
+- ⚠️ Show estimated cost per request
+- ⚠️ Link to provider's pricing page
+- ⚠️ Monthly cost tracking/alerts
+
+**For Free Tier Users:**
+- ℹ️ Display "Free tier - rate limited"
+- ℹ️ Show daily/hourly quota remaining
+- ℹ️ Offer upgrade path to paid tier
+
+---
+
+### Recommended Flutter Packages
+
+```yaml
+dependencies:
+  # OAuth & Authentication
+  flutter_appauth: ^7.x      # OAuth 2.0 with PKCE support
+  oauth2: ^2.x               # OAuth 2.0 client library
+
+  # Secure Storage
+  flutter_secure_storage: ^9.x  # Keychain/Keystore integration
+
+  # HTTP & API
+  dio: ^5.x                  # HTTP client with interceptors
+  http: ^1.x                 # Standard HTTP package
+
+  # State Management
+  flutter_riverpod: ^2.x     # For OAuth state management
+
+  # Deep Linking (for OAuth redirects)
+  uni_links: ^0.5.x          # Universal/deep link support
+  app_links: ^6.x            # App Links (Android) / Universal Links (iOS)
+```
+
+---
+
+### Testing Strategy
+
+**OAuth Testing:**
+1. **Sandbox Accounts**: Create test accounts with each provider
+2. **Mock Servers**: Use mockito to simulate OAuth flows
+3. **Integration Tests**: Test full OAuth flow on real devices
+4. **Token Refresh**: Test token expiration and refresh
+5. **Error Scenarios**: Test network failures, invalid tokens, revoked access
+
+**API Key Testing:**
+1. **Invalid Keys**: Test error handling
+2. **Rate Limiting**: Test quota enforcement
+3. **Key Rotation**: Test changing keys mid-session
+4. **Secure Storage**: Verify encryption at rest
+
+**Subscription Detection:**
+1. **Plan Detection**: Verify correct plan identification
+2. **Quota Tracking**: Test usage counter accuracy
+3. **Cost Calculation**: Verify cost estimates
+4. **Upgrade Flows**: Test free → paid transitions
+
+---
+
+### Migration Path
+
+**Aligned with Product Priorities:**
+
+**Phase 1: Core Frameworks - Subscription & API Keys (Weeks 1-4)**
+- **Claude Code** - Subscription authentication via AgentAPI (Priority 1)
+  - Connect to AgentAPI without API key (uses subscription by default)
+  - Detect and display Claude Pro/Max subscription status
+  - Show usage quota from subscription
+  - Optional API key support for non-subscribers
+  - Hybrid mode with automatic fallback
+- **OpenAI Codex** - Platform API integration (Priority 2)
+  - API key flow with clear billing separation
+  - Token usage calculator
+  - ChatGPT Plus ≠ API messaging
+- **Gemini CLI** - API key + free tier (Priority 3)
+  - Free tier implementation (15 req/min)
+  - Basic API key flow
+  - Prepare for OAuth in Phase 2
+
+**Phase 2: OAuth Implementation (Weeks 5-8)**
+- **Gemini OAuth** - First OAuth implementation (Priority 3)
+  - Google Cloud OAuth client setup
+  - OAuth flow for Gemini Advanced users
+  - Subscription detection and quota display
+- **Cursor Assessment** - Technical evaluation (Priority 4)
+  - Research API availability
+  - Decision: implement, defer, or skip
+  - Document limitations if not viable
+- **GitHub Copilot OAuth** - Best OAuth experience (Priority 5)
+  - OAuth device flow implementation
+  - Integrated billing (easiest implementation)
+  - Subscription quota management
+
+**Phase 3: Enhanced Authentication (Weeks 9-12)**
+- **Claude Code Enhancements**
+  - Improve subscription detection UI
+  - Add usage analytics and cost comparison
+  - Optimize AgentAPI connection management
+  - Session persistence improvements
+- **OpenAI Unofficial OAuth** (optional)
+  - Evaluate third-party plugins
+  - Add disclaimers and ToS warnings
+  - Personal use only limitations
+
+**Phase 4: Supporting Frameworks (Weeks 13-16)**
+- **Aider** - BYOK model
+  - Multi-provider key management
+  - Local model support (Ollama)
+- **Goose** - Integration layer
+  - Connect to existing subscriptions
+  - OAuth passthrough from other providers
+- **Sourcegraph Amp** - Enterprise OAuth
+  - SSO/SAML integration
+  - MCP OAuth support
+- **OpenCode** - Multi-provider
+  - OpenCode Zen integration
+  - Claude Pro/Max OAuth support
+
+**Phase 5: Long-term Enhancements**
+- Official Anthropic OAuth (if/when released)
+- Unified multi-provider subscription dashboard
+- Cross-provider usage analytics
+- Advanced cost optimization features
+
+---
+
+## 20. Open Questions (Remaining)
 
 1. **Monetization**: Will cloud runtime be a paid tier?
 2. **Branding**: App name? "Agentic Portal" or something else?
@@ -639,3 +1545,62 @@ AgentAPI is currently in-memory only. For true session persistence, we need:
 - [Hetzner Cloud Pricing](https://www.hetzner.com/cloud/pricing/)
 - [Fly.io Pricing](https://fly.io/pricing/)
 - [AWS Fargate vs EC2 Comparison](https://www.netcomlearning.com/blog/ecs-vs-ec2)
+
+### OAuth & Subscription Research (Section 19)
+
+**Claude Code (Anthropic):**
+- [Anthropic API Pricing: The 2026 Guide](https://www.nops.io/blog/anthropic-api-pricing/)
+- [Claude Pricing Explained: Subscription Plans & API Costs](https://intuitionlabs.ai/articles/claude-pricing-plans-api-costs)
+- [Using Claude Code with your Pro or Max plan](https://support.claude.com/en/articles/11145838-using-claude-code-with-your-pro-or-max-plan)
+- [Support Claude Pro/Max Plans via OAuth Authentication - Roo-Code Issue #4799](https://github.com/RooCodeInc/Roo-Code/issues/4799)
+- [Claude Pricing Official](https://claude.com/pricing)
+
+**Gemini CLI (Google):**
+- [Authentication with OAuth quickstart - Gemini API](https://ai.google.dev/gemini-api/docs/oauth)
+- [Gemini Developer API pricing](https://ai.google.dev/gemini-api/docs/pricing)
+- [Google Gemini Pricing Guide](https://www.cloudeagle.ai/blogs/blogs-google-gemini-pricing-guide)
+- [Gemini CLI Authentication Setup](https://geminicli.com/docs/get-started/authentication/)
+- [Set up Gemini Code Assist](https://docs.cloud.google.com/gemini/docs/codeassist/set-up-gemini)
+
+**OpenAI Codex:**
+- [What is ChatGPT Plus? - OpenAI Help Center](https://help.openai.com/en/articles/6950777-what-is-chatgpt-plus)
+- [OpenAI Pricing](https://openai.com/api/pricing/)
+- [OpenCode OpenAI Codex Auth Plugin](https://github.com/numman-ali/opencode-openai-codex-auth)
+- [Vercel AI SDK ChatGPT OAuth Provider](https://github.com/ben-vargas/ai-sdk-provider-chatgpt-oauth)
+- [Authentication - OpenAI Developers](https://developers.openai.com/apps-sdk/build/auth/)
+
+**GitHub Copilot:**
+- [REST API endpoints for Copilot - GitHub Docs](https://docs.github.com/en/rest/copilot/copilot-user-management)
+- [Plans for GitHub Copilot](https://docs.github.com/en/copilot/get-started/plans)
+- [Enhanced MCP OAuth support - GitHub Changelog](https://github.blog/changelog/2025-11-18-enhanced-mcp-oauth-support-for-github-copilot-in-jetbrains-eclipse-and-xcode/)
+- [GitHub Copilot Pricing 2026 Guide](https://userjot.com/blog/github-copilot-pricing-guide-2025)
+- [Copilot API - Turn GitHub Copilot into OpenAI API](https://github.com/ericc-ch/copilot-api)
+
+**Cursor:**
+- [Cursor Pricing](https://cursor.com/pricing)
+- [Cursor AI Pricing: 2025 Complete Guide](https://www.cometapi.com/cursor-ai-pricing-2025-complete-guide-analysis/)
+- [Cursor APIs Overview](https://cursor.com/docs/api)
+- [Using Cursor IDE with cto.new](https://cto.new/blog/using-cursor-ide-with-cto.new-as-your-background-agent)
+
+**Aider:**
+- [Aider - AI Pair Programming in Your Terminal](https://aider.chat/)
+- [Aider Review: Terminal-Based Code Assistant](https://www.blott.com/blog/post/aider-review-a-developers-month-with-this-terminal-based-code-assistant)
+- [Getting Started with Aider](https://blog.openreplay.com/getting-started-aider-ai-coding-terminal/)
+
+**Goose:**
+- [GitHub - block/goose](https://github.com/block/goose)
+- [GooseAI - NLP Infrastructure](https://goose.ai/)
+- [Goose Quickstart](https://block.github.io/goose/docs/quickstart/)
+- [Building an AI Assistant with Goose and Docker](https://www.docker.com/blog/building-an-ai-assistant-with-goose-and-docker-model-runner/)
+
+**Sourcegraph Amp:**
+- [Amp - Sourcegraph](https://sourcegraph.com/amp)
+- [Amp Owner's Manual](https://ampcode.com/manual)
+- [Sourcegraph Pricing](https://sourcegraph.com/pricing)
+- [Amp's Ad-Supported AI Coding](https://ainativedev.io/news/amp-s-new-business-model-ad-supported-ai-coding)
+
+**OpenCode:**
+- [OpenCode - The open source AI coding agent](https://opencode.ai/)
+- [GitHub - opencode-ai/opencode](https://github.com/opencode-ai/opencode)
+- [OpenCode Providers Documentation](https://opencode.ai/docs/providers/)
+- [OpenCode CLI Documentation](https://opencode.ai/docs/cli/)
