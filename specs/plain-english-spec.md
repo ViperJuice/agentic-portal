@@ -602,11 +602,17 @@ AgentAPI is currently in-memory only. For true session persistence, we need:
 
 To avoid subscribed users paying normal API prices, the portal needs OAuth integration to authenticate users with their existing framework subscriptions. This section details each framework's subscription offerings and OAuth capabilities.
 
+**Important Context:**
+- **Third-Party Provider**: We are a third-party application, not first-party providers
+- **AgentAPI Layer**: For Claude Code, AgentAPI handles subscription authentication automatically
+- **Default Behavior**: AgentAPI defaults to using authenticated Claude subscriptions when no API key is provided
+- **Hybrid Support**: Users can choose between subscription authentication or API key billing
+
 ### Framework Comparison Matrix
 
 | Framework | Has Subscription? | Subscription Price | API Separate? | OAuth Support | Integration Strategy |
 |-----------|-------------------|-------------------|---------------|---------------|---------------------|
-| **Claude Code** | Yes (Pro/Max) | $20/$100/mo | Yes | Third-party only | Unofficial OAuth plugins |
+| **Claude Code** | Yes (Pro/Max) | $20/$100/mo | Optional | ✅ AgentAPI default | Subscription via AgentAPI |
 | **Gemini CLI** | Yes (Advanced) | $19.99/mo | Yes | Official OAuth | Native OAuth for API |
 | **OpenAI Codex** | Yes (Plus/Pro) | $20/$200/mo | Yes | MCP only | Third-party plugins |
 | **GitHub Copilot** | Yes (5 tiers) | $0-$39/mo | No (integrated) | Native OAuth | REST API + Device Flow |
@@ -627,32 +633,49 @@ To avoid subscribed users paying normal API prices, the portal needs OAuth integ
 - **Enterprise**: Custom pricing
 
 **Key Findings:**
-- API pricing is **completely separate** from subscriptions
-- Even with Pro/Max, using `ANTHROPIC_API_KEY` triggers API charges
 - Pro/Max plans share usage limits between Claude web and Claude Code
+- AgentAPI **defaults to authenticated Claude subscription** when no API key provided
+- If `ANTHROPIC_API_KEY` is explicitly set, it uses API billing instead
 - API offers larger context (1M tokens vs 200K for subscriptions)
 
 **OAuth Status:**
-- ❌ **No official OAuth** for using subscription credits via API
-- ✅ **Third-party implementations** exist (e.g., Roo-Code Issue #4799)
-- Some coding tools are implementing OAuth 2.0 to bridge subscriptions to API access
+- ✅ **AgentAPI supports subscription authentication** by default
+- When user has active Claude Pro/Max subscription, AgentAPI uses it automatically
+- No explicit OAuth needed - subscription authentication is built-in
+- Third-party provider note: We are a third-party app accessing via AgentAPI
 
 **Implementation Strategy:**
 ```
-Option 1: API Key (Current)
-- User provides Anthropic API key
-- Pay per token (separate from subscription)
+Option 1: Subscription Authentication (Recommended - Default)
+- User authenticates with Claude Pro/Max account on desktop
+- AgentAPI detects active subscription
+- Portal connects to AgentAPI without providing API key
+- Uses subscription credits automatically
+- Best user experience - no API key management needed
 
-Option 2: OAuth (Future - if Anthropic adds support)
-- User authenticates with Claude Pro/Max account
-- Portal uses subscription credits instead of API charges
-- Requires Anthropic to expose subscription-based API access
+Option 2: API Key (Optional - For users without subscriptions)
+- User provides Anthropic API key
+- Pay per token (separate billing)
+- Useful for users without Pro/Max subscriptions
+- Or for users who want separate billing
+
+Option 3: Hybrid Approach
+- Detect if subscription is available via AgentAPI
+- Fall back to API key if no subscription found
+- Give user choice between subscription vs API key
 ```
 
+**Third-Party Provider Considerations:**
+- We are a third-party app, not first-party Anthropic
+- Access Claude Code via AgentAPI (local or cloud runtime)
+- Subscription authentication handled by AgentAPI layer
+- No direct OAuth integration needed with Anthropic
+- AgentAPI manages the authentication flow
+
 **Recommendation:**
-- **Phase 1**: API key only (current official method)
-- **Phase 2**: Monitor for official OAuth support
-- **Phase 3**: Consider third-party OAuth plugins (with user consent)
+- **Phase 1**: Subscription authentication via AgentAPI (default)
+- **Phase 2**: Optional API key for non-subscribers
+- **Phase 3**: Hybrid mode with automatic detection and fallback
 
 ---
 
@@ -1069,16 +1092,24 @@ Multi-Provider Approach:
 
 **1. Claude Code (Priority 1)**
 ```
-Week 1-2: API Key Implementation
-- Implement secure API key storage
-- Add cost tracking and transparency
-- User education: "API separate from subscription"
-- Test with Anthropic API
+Week 1-2: Subscription Authentication via AgentAPI (Recommended)
+- Connect to AgentAPI without providing API key
+- AgentAPI automatically uses Claude Pro/Max subscription if available
+- Detect subscription status and display to user
+- Show usage against subscription quota
+- Clear messaging: "Using your Claude [Pro/Max] subscription"
 
-Future: OAuth Integration
-- Monitor Anthropic for official OAuth announcement
-- Prepare OAuth flow architecture
-- Consider third-party bridges (Roo-Code pattern)
+Week 1-2 (Alternative): API Key Support
+- Implement secure API key storage for non-subscribers
+- Optional API key input for users who prefer separate billing
+- Cost tracking and transparency for API usage
+- Hybrid mode: Auto-detect subscription, offer API key fallback
+
+Third-Party Provider Implementation:
+- We are third-party app accessing via AgentAPI layer
+- AgentAPI handles Claude subscription authentication
+- No direct OAuth integration needed with Anthropic
+- Focus on AgentAPI connection management
 ```
 
 **2. OpenAI Codex (Priority 2)**
@@ -1256,8 +1287,8 @@ Week 5-6: OAuth Device Flow
 ├─────────────────────────────────────────┤
 │                                         │
 │  ⭐ Claude Code (Recommended)           │
-│    [Connect with API Key]               │
-│    OAuth coming soon                    │
+│    Have Pro/Max? Uses it automatically! │
+│    [Connect] [Use API Key Instead]      │
 │                                         │
 │  ○ OpenAI Codex                         │
 │    [Connect with API Key]               │
@@ -1282,6 +1313,35 @@ Week 5-6: OAuth Device Flow
 
 **Subscription Detection:**
 ```
+When user connects Claude Code with subscription:
+┌─────────────────────────────────────────┐
+│  Claude Code Connected!                 │
+├─────────────────────────────────────────┤
+│  Plan: Claude Pro ($20/month)           │
+│  Usage: 42 / 200 messages remaining     │
+│                                         │
+│  ✓ Using your Claude subscription       │
+│  ✗ No additional API charges            │
+│  ℹ Via AgentAPI (subscription mode)     │
+│                                         │
+│  [View Usage] [Switch to API Key]       │
+└─────────────────────────────────────────┘
+
+When user connects Claude Code with API key:
+┌─────────────────────────────────────────┐
+│  Claude Code Connected!                 │
+├─────────────────────────────────────────┤
+│  Authentication: API Key                │
+│                                         │
+│  ⚠ Pay-per-use billing                  │
+│  ⚠ Separate from Claude Pro subscription│
+│                                         │
+│  Estimated cost: $0.003/request         │
+│  💡 Have Claude Pro? Use subscription   │
+│                                         │
+│  [Switch to Subscription] [Disconnect]  │
+└─────────────────────────────────────────┘
+
 When user connects GitHub Copilot:
 ┌─────────────────────────────────────────┐
 │  GitHub Copilot Connected!              │
@@ -1293,20 +1353,6 @@ When user connects GitHub Copilot:
 │  ✗ No additional API charges            │
 │                                         │
 │  [View Usage] [Disconnect]              │
-└─────────────────────────────────────────┘
-
-When user adds API key:
-┌─────────────────────────────────────────┐
-│  Claude Code Connected!                 │
-├─────────────────────────────────────────┤
-│  Authentication: API Key                │
-│                                         │
-│  ⚠ Pay-per-use billing                  │
-│  ⚠ Separate from Claude Pro subscription│
-│                                         │
-│  Estimated cost: $0.003/request         │
-│                                         │
-│  [View Pricing] [Disconnect]            │
 └─────────────────────────────────────────┘
 ```
 
@@ -1385,11 +1431,13 @@ dependencies:
 
 **Aligned with Product Priorities:**
 
-**Phase 1: Core Frameworks - API Keys (Weeks 1-4)**
-- **Claude Code** - API key implementation (Priority 1)
-  - Secure storage via flutter_secure_storage
-  - Cost tracking and transparency UI
-  - User education about API vs subscription billing
+**Phase 1: Core Frameworks - Subscription & API Keys (Weeks 1-4)**
+- **Claude Code** - Subscription authentication via AgentAPI (Priority 1)
+  - Connect to AgentAPI without API key (uses subscription by default)
+  - Detect and display Claude Pro/Max subscription status
+  - Show usage quota from subscription
+  - Optional API key support for non-subscribers
+  - Hybrid mode with automatic fallback
 - **OpenAI Codex** - Platform API integration (Priority 2)
   - API key flow with clear billing separation
   - Token usage calculator
@@ -1414,10 +1462,11 @@ dependencies:
   - Subscription quota management
 
 **Phase 3: Enhanced Authentication (Weeks 9-12)**
-- **Claude Code OAuth** (when available)
-  - Monitor Anthropic for official OAuth launch
-  - Implement official OAuth if released
-  - OR: Evaluate third-party bridges (Roo-Code pattern)
+- **Claude Code Enhancements**
+  - Improve subscription detection UI
+  - Add usage analytics and cost comparison
+  - Optimize AgentAPI connection management
+  - Session persistence improvements
 - **OpenAI Unofficial OAuth** (optional)
   - Evaluate third-party plugins
   - Add disclaimers and ToS warnings
