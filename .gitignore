@@ -1,0 +1,38 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+*.lock
+
+# macOS
+.DS_Store
+
+# Android
+android/.gradle/
+android/local.properties
+android/*.iml
+android/app/debug/
+android/app/release/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/.last_build_id
+
+# Binaries (keep agentapi tracked for now)
+# bin/
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+*.swp
+*.swo
